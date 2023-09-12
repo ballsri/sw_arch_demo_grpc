@@ -1,0 +1,11 @@
+.env
+__pycache__/
+.pyc
+.vscode/*
+.venv/*
+grpc_base/src/UNKNOWN.egg-info/dependency_links.txt
+grpc_base/src/UNKNOWN.egg-info/PKG-INFO
+grpc_base/src/UNKNOWN.egg-info/SOURCES.txt
+grpc_base/src/UNKNOWN.egg-info/top_level.txt
+grpc_base/dist/grpc_base-0.1.0.tar.gz
+grpc_base/dist/grpc_base-0.1.0-py3-none-any.whl

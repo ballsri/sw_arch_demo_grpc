@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.poetry]
+name = "grpc_base"
+version = "0.1.0"
+description = "gRPC bindings for various services"
+authors = ["Your Name <your.email@example.com>"]
+license = "MIT"
+packages = [
+    { include = "src/grpc_base/compiled_proto/*" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+grpcio = "^1.37.1"
+
+[tool.poetry.dev-dependencies]
+grpcio-tools = "^1.37.1"
+
+[build]
+include = [
+    "src/compiled_proto/*.py"
+]

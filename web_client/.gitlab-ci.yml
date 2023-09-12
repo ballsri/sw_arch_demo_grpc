@@ -1,0 +1,78 @@
+stages:
+  - deploy
+
+.gar-docker-authentication:
+  script:
+    - export DOCKER_REGISTRY="${GAR_REGISTRY:-asia.gcr.io}"
+    - export DOCKER_REGISTRY_SUBPATH=$GAR_REGISTRY_SUBPATH
+    - export DOCKER_REGISTRY_IMAGE="${GAR_REGISTRY}/${GCP_PROJECT_ID}${DOCKER_REGISTRY_SUBPATH}/${CI_PROJECT_NAME}"
+    - export GAR_REGISTRY_USER=_json_key
+    - echo $GAR_REGISTRY_PASSWORD | docker login -u $GAR_REGISTRY_USER --password-stdin https://$DOCKER_REGISTRY
+
+.build:
+  image: ${DOCKER_IMAGE}
+  variables:
+    DOCKER_BUILDKIT: 1
+    DOCKER_HOST: "tcp://docker:2376"
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_IMAGE: docker:20.10.13
+    DOCKER_DIND_IMAGE: docker:20.10.13-dind
+    DOCKER_BUILD_PATH: .
+    DOCKER_REGISTRY: $CI_REGISTRY
+    DOCKER_REGISTRY_SUBPATH: "" # Must start with / E.g. "/subgroup"
+    DOCKER_REGISTRY_IMAGE: ${DOCKER_REGISTRY}${DOCKER_REGISTRY_SUBPATH}/$CI_PROJECT_NAME
+    DOCKER_TAGS: ${CI_COMMIT_SHORT_SHA}
+  services:
+    - ${DOCKER_DIND_IMAGE}
+  environment:
+    name: ${ENVIRONMENT}
+  script:
+    - |
+      docker build -t ${CI_JOB_ID}:build \
+      --build-arg REACT_APP_BACKEND_API=${REACT_APP_BACKEND_API} \
+      --no-cache ${DOCKER_BUILD_OPTIONS} ${DOCKER_BUILD_PATH}
+  after_script:
+    - docker rmi -f ${CI_JOB_ID}:build # Only need to remove base image to untagged every image
+
+.tag-and-push:
+  script:
+    - |
+      if [ -z $CI_COMMIT_TAG ]; then
+        export DOCKER_TAGS="${ENVIRONMENT}-${CI_COMMIT_SHORT_SHA}-$(date +%s)"
+      else
+        export DOCKER_TAGS="$CI_COMMIT_TAG"
+      fi
+    - |
+      for TAG in $(echo ${DOCKER_TAGS} | tr ',' ' '); do
+        docker tag ${CI_JOB_ID}:build ${DOCKER_REGISTRY_IMAGE}:${TAG}
+      done
+    - docker push ${DOCKER_REGISTRY_IMAGE} --all-tags
+
+
+build-and-push:
+  extends: .build
+  stage: deploy
+  script:
+    - !reference [.build, script]
+    - !reference [.gar-docker-authentication, script]
+    - !reference [.tag-and-push, script]
+  parallel:
+    matrix:
+      - ENVIRONMENT: [uat, prod]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev" && $ENVIRONMENT == "uat"
+      variables:
+        ENVIRONMENT: "uat"
+        GAR_REGISTRY: "asia-southeast1-docker.pkg.dev"
+        GCP_PROJECT_ID: "finjam-nonprod"
+        GAR_REGISTRY_SUBPATH: "/finjam-nonprod"
+        GAR_REGISTRY_PASSWORD: "${GITLAB_CI_NONPROD_GOOGLE_CREDENTIALS}"
+        REACT_APP_BACKEND_API: "https://uat-api.finjam.ai"
+    - if: $CI_COMMIT_BRANCH == "main" && $ENVIRONMENT == "prod"
+      variables:
+        ENVIRONMENT: "prod"
+        GAR_REGISTRY: "asia-southeast1-docker.pkg.dev"
+        GCP_PROJECT_ID: "finjam-prod"
+        GAR_REGISTRY_SUBPATH: "/finjam-prod"
+        GAR_REGISTRY_PASSWORD: "${GITLAB_CI_PROD_GOOGLE_CREDENTIALS}"
+        REACT_APP_BACKEND_API: "https://api.finjam.ai"

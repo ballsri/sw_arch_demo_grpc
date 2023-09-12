@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package housekeeper;
+
+import "google/protobuf/empty.proto";
+
+message HouseKeeper {
+    string id = 1;          // Using string for UUID
+    string firstName = 2;
+    string lastName = 3;
+    string phone = 4;
+}
+
+message HouseKeeperCreate {
+    string firstName = 1;
+    string lastName = 2;
+    string phone = 3;
+}
+
+message HouseKeeperUpdate {
+    string id = 1;          // ID needed for update
+    string firstName = 2;
+    string lastName = 3;
+    string phone = 4;
+}
+
+service HouseKeeperService {
+    rpc GetAllHouseKeepers(google.protobuf.Empty) returns (stream HouseKeeper);
+    rpc GetOneHouseKeeper(IdRequest) returns (HouseKeeper);
+    rpc CreateHouseKeeper(HouseKeeperCreate) returns (HouseKeeper);
+    rpc UpdateByIdHouseKeeper(HouseKeeperUpdate) returns (HouseKeeper);
+    rpc DeleteByIdHouseKeeper(IdRequest) returns (HouseKeeper);
+}
+
+message IdRequest {
+    string id = 1;  // Using string for UUID
+}
